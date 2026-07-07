@@ -105,6 +105,8 @@ checkSerial1URC();             // 5. 检查模组URC(短信上报)
 - `key1` — 通用参数 1（token/secret/chat_id 等）
 - `key2` — 通用参数 2（channel/bot_token 等）
 - `customBody` — 自定义模板的 HTTP body
+- `filterRegex` — 可选短信内容 tiny-regex-c 过滤表达式；为空表示不过滤
+- `filterInvert` — 正则触发模式，`false` 表示匹配时触发，`true` 表示不匹配时触发
 
 ### Config 结构体
 
@@ -250,6 +252,7 @@ sendSMSToServer(sender, message, timestamp)
   └─ for each valid channel:
        └─ sendToChannel(channel, sender, message, timestamp)
             │
+            ├─ 检查通道正则过滤条件（filterRegex/filterInvert）
             ├─ jsonEscape() 转义 sender/message/timestamp
             │
             └─ switch(channel.type):

@@ -24,6 +24,8 @@ void saveConfig() {
     preferences.putString((prefix + "k1").c_str(), config.pushChannels[i].key1);
     preferences.putString((prefix + "k2").c_str(), config.pushChannels[i].key2);
     preferences.putString((prefix + "body").c_str(), config.pushChannels[i].customBody);
+    preferences.putString((prefix + "re").c_str(), config.pushChannels[i].filterRegex);
+    preferences.putBool((prefix + "reInv").c_str(), config.pushChannels[i].filterInvert);
   }
   
   preferences.end();
@@ -53,6 +55,8 @@ void loadConfig() {
     config.pushChannels[i].key1 = preferences.getString((prefix + "k1").c_str(), "");
     config.pushChannels[i].key2 = preferences.getString((prefix + "k2").c_str(), "");
     config.pushChannels[i].customBody = preferences.getString((prefix + "body").c_str(), "");
+    config.pushChannels[i].filterRegex = preferences.getString((prefix + "re").c_str(), "");
+    config.pushChannels[i].filterInvert = preferences.getBool((prefix + "reInv").c_str(), false);
   }
   
   // 兼容旧配置：如果有旧的httpUrl配置，迁移到第一个通道

@@ -6,6 +6,7 @@
 #include <mbedtls/md.h>
 #include <base64.h>
 #include <sys/time.h>
+#include "re.h"
 
 // 发送邮件通知函数
 void sendEmailNotification(const char* subject, const char* body) {
@@ -105,9 +106,30 @@ String jsonEscape(const String& str) {
   return result;
 }
 
+// 检查通道正则过滤条件。正则为空时不限制。
+static bool isChannelFilterMatched(const PushChannel& channel, const char* message) {
+  if (channel.filterRegex.length() == 0) return true;
+
+  String channelName = channel.name.length() > 0 ? channel.name : ("通道" + String(channel.type));
+  re_t pattern = re_compile(channel.filterRegex.c_str());
+  if (pattern == 0) {
+    logCaptureLn(String("[") + channelName + "] 正则格式无效，跳过通道");
+    return false;
+  }
+
+  int matchLength = 0;
+  bool matched = re_matchp(pattern, message, &matchLength) != -1;
+  bool allowed = channel.filterInvert ? !matched : matched;
+  if (!allowed) {
+    logCaptureLn(String("[") + channelName + "] 未满足正则过滤条件，跳过通道");
+  }
+  return allowed;
+}
+
 // 发送单个推送通道
 void sendToChannel(const PushChannel& channel, const char* sender, const char* message, const char* timestamp) {
   if (!channel.enabled) return;
+  if (!isChannelFilterMatched(channel, message)) return;
   
   // 对于某些推送方式，URL可以为空（使用默认URL）
   bool needUrl = (channel.type == PUSH_TYPE_POST_JSON || channel.type == PUSH_TYPE_BARK || 

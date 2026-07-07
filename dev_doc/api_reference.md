@@ -29,6 +29,8 @@
 | `push{i}k1` | String | 通道 i 参数1 |
 | `push{i}k2` | String | 通道 i 参数2 |
 | `push{i}body` | String | 通道 i 自定义模板 |
+| `push{i}re` | String | 通道 i 短信内容 tiny-regex-c 过滤表达式 |
+| `push{i}reInv` | Bool | 通道 i 是否在正则不匹配时触发 |
 
 ---
 
@@ -43,6 +45,7 @@
 - `webPass`: `"admin123"` (`DEFAULT_WEB_PASS`)
 - 通道名称: `"通道1"` ~ `"通道5"`
 - 通道类型: `PUSH_TYPE_POST_JSON` (1)
+- 通道正则过滤: 空表达式，默认匹配时触发
 
 ---
 
@@ -59,6 +62,8 @@
 | TELEGRAM | `key1` 非空 **且** `key2` 非空 |
 
 **前提**: `ch.enabled == true`，否则直接返回 false。
+
+**注意**: 正则过滤不影响配置有效性校验，只在 `sendToChannel()` 真正发送前判断。
 
 ---
 
@@ -173,6 +178,8 @@
 
 ### `void sendToChannel(const PushChannel& channel, const char* sender, const char* message, const char* timestamp)`
 **核心推送函数**。根据 `channel.type` 分发到 10 种推送方式之一。每个 case 构建对应的 HTTP 请求（URL/Header/Body），使用 `HTTPClient` 发送，打印响应码和内容。
+
+发送前会先检查 `channel.filterRegex` / `channel.filterInvert`：正则为空则直接放行；`re_compile()` 返回空指针或短信内容不满足触发模式时跳过该通道。为控制固件体积，这里使用 vendored tiny-regex-c，支持 `.`、`^`、`$`、`*`、`+`、`?`、`[]`、`[^]`、`[a-z]`、`\s`、`\S`、`\w`、`\W`、`\d`、`\D`；不支持分组、捕获、命名捕获和 `|` 分支。
 
 **签名相关**:
 - 钉钉: `HMAC-SHA256(timestamp+"\n"+secret)` → Base64 → URLEncode → 追加到 URL

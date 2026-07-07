@@ -30,6 +30,8 @@ struct PushChannel {
   String key1;            // 额外参数1（如：钉钉secret、pushplus token等）
   String key2;            // 额外参数2（备用）
   String customBody;      // 自定义请求体模板（使用 {sender} {message} {timestamp} 占位符）
+  String filterRegex;     // 可选正则过滤表达式（匹配短信内容）
+  bool filterInvert;      // false: 匹配时触发；true: 不匹配时触发
 };
 
 // 配置参数结构体

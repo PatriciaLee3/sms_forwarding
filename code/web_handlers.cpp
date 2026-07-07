@@ -62,6 +62,21 @@ void logCaptureLn(const char* msg) {
   _logCommit();
 }
 
+static String htmlEscape(const String& value) {
+  String result = "";
+  result.reserve(value.length());
+  for (unsigned int i = 0; i < value.length(); i++) {
+    char c = value.charAt(i);
+    if (c == '&') result += "&amp;";
+    else if (c == '"') result += "&quot;";
+    else if (c == '\'') result += "&#39;";
+    else if (c == '<') result += "&lt;";
+    else if (c == '>') result += "&gt;";
+    else result += c;
+  }
+  return result;
+}
+
 // 检查HTTP Basic认证
 bool checkAuth() {
   if (!server.authenticate(config.webUser.c_str(), config.webPass.c_str())) {
@@ -110,6 +125,8 @@ void handleRoot() {
     String idx = String(i);
     String enabledClass = config.pushChannels[i].enabled ? " enabled" : "";
     String checked = config.pushChannels[i].enabled ? " checked" : "";
+    String filterMatchSelected = config.pushChannels[i].filterInvert ? "" : " selected";
+    String filterNotMatchSelected = config.pushChannels[i].filterInvert ? " selected" : "";
     
     channelsHtml += "<div class=\"push-channel" + enabledClass + "\" id=\"channel" + idx + "\">";
     channelsHtml += "<div class=\"push-channel-header\">";
@@ -121,7 +138,7 @@ void handleRoot() {
     // 通道名称
     channelsHtml += "<div class=\"form-group\">";
     channelsHtml += "<label>通道名称</label>";
-    channelsHtml += "<input type=\"text\" name=\"push" + idx + "name\" value=\"" + config.pushChannels[i].name + "\" placeholder=\"自定义名称\">";
+    channelsHtml += "<input type=\"text\" name=\"push" + idx + "name\" value=\"" + htmlEscape(config.pushChannels[i].name) + "\" placeholder=\"自定义名称\">";
     channelsHtml += "</div>";
     
     // 推送类型
@@ -145,18 +162,31 @@ void handleRoot() {
     // URL
     channelsHtml += "<div class=\"form-group\">";
     channelsHtml += "<label>推送URL/Webhook</label>";
-    channelsHtml += "<input type=\"text\" name=\"push" + idx + "url\" value=\"" + config.pushChannels[i].url + "\" placeholder=\"http://your-server.com/api 或 webhook地址\">";
+    channelsHtml += "<input type=\"text\" name=\"push" + idx + "url\" value=\"" + htmlEscape(config.pushChannels[i].url) + "\" placeholder=\"http://your-server.com/api 或 webhook地址\">";
+    channelsHtml += "</div>";
+
+    // 正则过滤
+    channelsHtml += "<div class=\"form-group\">";
+    channelsHtml += "<label>正则过滤</label>";
+    channelsHtml += "<select name=\"push" + idx + "regexMode\">";
+    channelsHtml += "<option value=\"match\"" + filterMatchSelected + ">匹配时触发</option>";
+    channelsHtml += "<option value=\"not_match\"" + filterNotMatchSelected + ">不匹配时触发</option>";
+    channelsHtml += "</select>";
+    channelsHtml += "</div>";
+    channelsHtml += "<div class=\"form-group\">";
+    channelsHtml += "<input type=\"text\" name=\"push" + idx + "regex\" value=\"" + htmlEscape(config.pushChannels[i].filterRegex) + "\" placeholder=\"留空表示不过滤\">";
+    channelsHtml += "<p class=\"form-hint\">支持 . ^ $ * + ? [] [^] [a-z] \\s \\S \\w \\W \\d \\D；不支持分组和 |。</p>";
     channelsHtml += "</div>";
     
     // 额外参数区域（钉钉/PushPlus/Server酱等需要）
     channelsHtml += "<div id=\"extra" + idx + "\" style=\"display:none;\">";
     channelsHtml += "<div class=\"form-group\">";
     channelsHtml += "<label id=\"key1label" + idx + "\">参数1</label>";
-    channelsHtml += "<input type=\"text\" name=\"push" + idx + "key1\" id=\"key1" + idx + "\" value=\"" + config.pushChannels[i].key1 + "\">";
+    channelsHtml += "<input type=\"text\" name=\"push" + idx + "key1\" id=\"key1" + idx + "\" value=\"" + htmlEscape(config.pushChannels[i].key1) + "\">";
     channelsHtml += "</div>";
     channelsHtml += "<div class=\"form-group\" id=\"key2group" + idx + "\">";
     channelsHtml += "<label id=\"key2label" + idx + "\">参数2</label>";
-    channelsHtml += "<input type=\"text\" name=\"push" + idx + "key2\" id=\"key2" + idx + "\" value=\"" + config.pushChannels[i].key2 + "\">";
+    channelsHtml += "<input type=\"text\" name=\"push" + idx + "key2\" id=\"key2" + idx + "\" value=\"" + htmlEscape(config.pushChannels[i].key2) + "\">";
     channelsHtml += "</div>";
     channelsHtml += "</div>";
     
@@ -164,7 +194,7 @@ void handleRoot() {
     channelsHtml += "<div id=\"custom" + idx + "\" style=\"display:none;\">";
     channelsHtml += "<div class=\"form-group\">";
     channelsHtml += "<label>请求体模板（使用 {sender} {message} {timestamp} 占位符）</label>";
-    channelsHtml += "<textarea name=\"push" + idx + "body\" rows=\"4\" style=\"width:100%;font-family:monospace;\">" + config.pushChannels[i].customBody + "</textarea>";
+    channelsHtml += "<textarea name=\"push" + idx + "body\" rows=\"4\" style=\"width:100%;font-family:monospace;\">" + htmlEscape(config.pushChannels[i].customBody) + "</textarea>";
     channelsHtml += "</div>";
     channelsHtml += "</div>";
     
@@ -896,10 +926,12 @@ void handleSave() {
     String k1Key = "push" + idx + "key1";
     String k2Key = "push" + idx + "key2";
     String bodyKey = "push" + idx + "body";
+    String regexKey = "push" + idx + "regex";
+    String regexModeKey = "push" + idx + "regexMode";
     // 只要该通道的任一字段存在，就更新整个通道
     if (server.hasArg(enKey) || server.hasArg(typeKey) || server.hasArg(urlKey) ||
         server.hasArg(nameKey) || server.hasArg(k1Key) || server.hasArg(k2Key) ||
-        server.hasArg(bodyKey)) {
+        server.hasArg(bodyKey) || server.hasArg(regexKey) || server.hasArg(regexModeKey)) {
       config.pushChannels[i].enabled = server.arg(enKey) == "on";
       config.pushChannels[i].type = (PushType)server.arg(typeKey).toInt();
       config.pushChannels[i].url = server.arg(urlKey);
@@ -907,6 +939,8 @@ void handleSave() {
       config.pushChannels[i].key1 = server.arg(k1Key);
       config.pushChannels[i].key2 = server.arg(k2Key);
       config.pushChannels[i].customBody = server.arg(bodyKey);
+      config.pushChannels[i].filterRegex = server.arg(regexKey);
+      config.pushChannels[i].filterInvert = server.arg(regexModeKey) == "not_match";
       if (config.pushChannels[i].name.length() == 0) {
         config.pushChannels[i].name = "通道" + String(i + 1);
       }
