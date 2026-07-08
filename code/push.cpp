@@ -8,10 +8,9 @@
 #include <sys/time.h>
 #include "re.h"
 
-// 发送邮件通知函数
-void sendEmailNotification(const char* subject, const char* body) {
-  if (config.smtpServer.length() == 0 || config.smtpUser.length() == 0 || 
-      config.smtpPass.length() == 0 || config.smtpSendTo.length() == 0) {
+static void sendEmailToRecipient(const char* recipient, const char* subject, const char* body) {
+  String recipientAddress = String(recipient);
+  if (!isEmailAccountValid() || recipientAddress.length() == 0) {
     logCaptureLn(String("邮件配置不完整，跳过发送"));
     return;
   }
@@ -26,7 +25,7 @@ void sendEmailNotification(const char* subject, const char* body) {
     SMTPMessage msg;
     String from = "sms notify <"; from += config.smtpUser; from += ">";
     msg.headers.add(rfc822_from, from.c_str());
-    String to = "your_email <"; to += config.smtpSendTo; to += ">";
+    String to = "your_email <"; to += recipientAddress; to += ">";
     msg.headers.add(rfc822_to, to.c_str());
     msg.headers.add(rfc822_subject, subject);
     msg.text.body(body);
@@ -36,6 +35,11 @@ void sendEmailNotification(const char* subject, const char* body) {
   } else {
     logCaptureLn(String("邮件服务器连接失败"));
   }
+}
+
+// 发送邮件通知函数（系统邮件使用全局收件人）
+void sendEmailNotification(const char* subject, const char* body) {
+  sendEmailToRecipient(config.smtpSendTo.c_str(), subject, body);
 }
 
 // URL编码辅助函数
@@ -106,6 +110,13 @@ String jsonEscape(const String& str) {
   return result;
 }
 
+static String renderSmsTemplate(String templateText, const char* sender, const char* message, const char* timestamp) {
+  templateText.replace("{sender}", String(sender));
+  templateText.replace("{message}", String(message));
+  templateText.replace("{timestamp}", String(timestamp));
+  return templateText;
+}
+
 // 检查通道正则过滤条件。正则为空时不限制。
 static bool isChannelFilterMatched(const PushChannel& channel, const char* message) {
   if (channel.filterRegex.length() == 0) return true;
@@ -137,10 +148,20 @@ void sendToChannel(const PushChannel& channel, const char* sender, const char* m
                   channel.type == PUSH_TYPE_CUSTOM);
   if (needUrl && channel.url.length() == 0) return;
   
-  HTTPClient http;
   String channelName = channel.name.length() > 0 ? channel.name : ("通道" + String(channel.type));
   logCaptureLn(String("发送到推送通道: " + channelName));
+
+  if (channel.type == PUSH_TYPE_EMAIL) {
+    String recipient = channel.key1.length() > 0 ? channel.key1 : config.smtpSendTo;
+    String subjectTemplate = channel.key2.length() > 0 ? channel.key2 : "短信{sender},{message}";
+    String bodyTemplate = channel.customBody.length() > 0 ? channel.customBody : "来自：{sender}，时间：{timestamp}，内容：{message}";
+    String subject = renderSmsTemplate(subjectTemplate, sender, message, timestamp);
+    String body = renderSmsTemplate(bodyTemplate, sender, message, timestamp);
+    sendEmailToRecipient(recipient.c_str(), subject.c_str(), body.c_str());
+    return;
+  }
   
+  HTTPClient http;
   int httpCode = 0;
   String senderEscaped = jsonEscape(String(sender));
   String messageEscaped = jsonEscape(String(message));
@@ -353,7 +374,7 @@ void sendToChannel(const PushChannel& channel, const char* sender, const char* m
       httpCode = http.POST(jsonData);
       break;
     }
-    
+
     default:
       logCaptureLn(String("未知推送类型"));
       return;

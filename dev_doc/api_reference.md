@@ -49,6 +49,13 @@
 
 ---
 
+### `bool isEmailAccountValid()`
+**用途**: 检查全局 SMTP 账号配置是否可用于发送邮件。
+
+**返回 true 条件**: `smtpServer` / `smtpUser` / `smtpPass` 非空，且 `smtpPort > 0`。
+
+---
+
 ### `bool isPushChannelValid(const PushChannel& ch)`
 **用途**: 检查单个推送通道配置是否完整可用。
 
@@ -60,17 +67,20 @@
 | PUSHPLUS / SERVERCHAN | `key1` 非空 |
 | GOTIFY | `url` 非空 **且** `key1` 非空 |
 | TELEGRAM | `key1` 非空 **且** `key2` 非空 |
+| EMAIL | 全局 SMTP 账号有效，且 `key1` 或 `smtpSendTo` 至少一个非空 |
 
 **前提**: `ch.enabled == true`，否则直接返回 false。
 
 **注意**: 正则过滤不影响配置有效性校验，只在 `sendToChannel()` 真正发送前判断。
+
+**邮件通道字段**: `key1` 为通道收件人，留空使用全局 `smtpSendTo`；`key2` 为邮件标题模板；`customBody` 为邮件正文模板。
 
 ---
 
 ### `bool isConfigValid()`
 **用途**: 检查系统是否有至少一种可用的通知方式。
 
-**返回 true 条件**: 邮件配置完整（4 个 SMTP 字段均非空）**或** 至少一个推送通道通过 `isPushChannelValid()` 校验。
+**返回 true 条件**: 至少一个推送通道通过 `isPushChannelValid()` 校验。
 
 ---
 
@@ -153,7 +163,7 @@
 ## 模块: push.cpp — 推送与邮件
 
 ### `void sendEmailNotification(const char* subject, const char* body)`
-**前提检查**: SMTP 四个字段均非空，否则打印跳过日志。
+**前提检查**: 全局 SMTP 账号有效，且 `smtpSendTo` 非空，否则打印跳过日志。
 
 **实现**:
 1. 创建 `smtp.connect(server, port, callback)`
@@ -177,7 +187,7 @@
 ---
 
 ### `void sendToChannel(const PushChannel& channel, const char* sender, const char* message, const char* timestamp)`
-**核心推送函数**。根据 `channel.type` 分发到 10 种推送方式之一。每个 case 构建对应的 HTTP 请求（URL/Header/Body），使用 `HTTPClient` 发送，打印响应码和内容。
+**核心推送函数**。根据 `channel.type` 分发到 11 种推送方式之一。HTTP 类通道构建对应的 HTTP 请求（URL/Header/Body），邮件通道渲染标题/正文模板后通过 SMTP 发送。
 
 发送前会先检查 `channel.filterRegex` / `channel.filterInvert`：正则为空则直接放行；`re_compile()` 返回空指针或短信内容不满足触发模式时跳过该通道。为控制固件体积，这里使用 vendored tiny-regex-c，支持 `.`、`^`、`$`、`*`、`+`、`?`、`[]`、`[^]`、`[a-z]`、`\s`、`\S`、`\w`、`\W`、`\d`、`\D`；不支持分组、捕获、命名捕获和 `|` 分支。
 
@@ -185,7 +195,7 @@
 - 钉钉: `HMAC-SHA256(timestamp+"\n"+secret)` → Base64 → URLEncode → 追加到 URL
 - 飞书: `HMAC-SHA256(timestamp+"\n"+secret)` → Base64 → 放入 JSON body
 
-**占位符**: 自定义模板（PUSH_TYPE_CUSTOM）支持 `{sender}` `{message}` `{timestamp}` 占位符替换。
+**占位符**: 自定义模板（PUSH_TYPE_CUSTOM）和邮件模板（PUSH_TYPE_EMAIL）支持 `{sender}` `{message}` `{timestamp}` 占位符替换。
 
 ---
 
@@ -277,7 +287,6 @@ HMAC-SHA256(timestamp + "\n" + secret, secret) → Base64 → URLEncode
 1. `isInNumberBlackList()` → 忽略
 2. `isAdmin()` + 命令格式检测 → `processAdminCommand()` → 不再发普通通知
 3. `sendSMSToServer()` — 推送所有启用的通道
-4. `sendEmailNotification()` — 邮件通知
 
 ---
 
@@ -347,7 +356,7 @@ HTTP Basic Authentication，账号密码来自 `config.webUser` / `config.webPas
 | `%SMTP_SERVER%` ~ `%SMTP_SEND_TO%` | `config.smtp*` |
 | `%ADMIN_PHONE%` | `config.adminPhone` |
 | `%NUMBER_BLACK_LIST%` | `config.numberBlackList` |
-| `%SMTP_CHECK%` | 邮件配置是否完整 |
+| `%SMTP_CHECK%` | 全局 SMTP 账号/默认收件人配置状态 |
 | `%PUSH_COUNT%` | 已启用的有效推送通道数 |
 | `%PUSH_CHANNELS%` | 循环生成 5 个通道的 HTML 表单 |
 

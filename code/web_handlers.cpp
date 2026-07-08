@@ -109,9 +109,8 @@ void handleRoot() {
   html.replace("%NUMBER_BLACK_LIST%", config.numberBlackList);
 
   // 概览页面的配置状态
-  bool emailOk = config.smtpServer.length() > 0 && config.smtpUser.length() > 0 &&
-                 config.smtpPass.length() > 0 && config.smtpSendTo.length() > 0;
-  html.replace("%SMTP_CHECK%", emailOk ? "已配置" : "未配置");
+  bool emailOk = isEmailAccountValid();
+  html.replace("%SMTP_CHECK%", emailOk ? (config.smtpSendTo.length() > 0 ? "已配置" : "SMTP已配置") : "未配置");
   html.replace("%MODEM_CHECK%", modemReady ? "已就绪" : "未就绪");
   int pushCount = 0;
   for (int i = 0; i < MAX_PUSH_CHANNELS; i++) {
@@ -155,12 +154,13 @@ void handleRoot() {
     channelsHtml += "<option value=\"8\"" + String(config.pushChannels[i].type == PUSH_TYPE_FEISHU ? " selected" : "") + ">飞书机器人</option>";
     channelsHtml += "<option value=\"9\"" + String(config.pushChannels[i].type == PUSH_TYPE_GOTIFY ? " selected" : "") + ">Gotify</option>";
     channelsHtml += "<option value=\"10\"" + String(config.pushChannels[i].type == PUSH_TYPE_TELEGRAM ? " selected" : "") + ">Telegram Bot</option>";
+    channelsHtml += "<option value=\"11\"" + String(config.pushChannels[i].type == PUSH_TYPE_EMAIL ? " selected" : "") + ">邮件（SMTP）</option>";
     channelsHtml += "</select>";
     channelsHtml += "<div class=\"push-type-hint\" id=\"hint" + idx + "\"></div>";
     channelsHtml += "</div>";
     
     // URL
-    channelsHtml += "<div class=\"form-group\">";
+    channelsHtml += "<div class=\"form-group\" id=\"urlgroup" + idx + "\">";
     channelsHtml += "<label>推送URL/Webhook</label>";
     channelsHtml += "<input type=\"text\" name=\"push" + idx + "url\" value=\"" + htmlEscape(config.pushChannels[i].url) + "\" placeholder=\"http://your-server.com/api 或 webhook地址\">";
     channelsHtml += "</div>";
@@ -193,8 +193,8 @@ void handleRoot() {
     // 自定义模板区域
     channelsHtml += "<div id=\"custom" + idx + "\" style=\"display:none;\">";
     channelsHtml += "<div class=\"form-group\">";
-    channelsHtml += "<label>请求体模板（使用 {sender} {message} {timestamp} 占位符）</label>";
-    channelsHtml += "<textarea name=\"push" + idx + "body\" rows=\"4\" style=\"width:100%;font-family:monospace;\">" + htmlEscape(config.pushChannels[i].customBody) + "</textarea>";
+    channelsHtml += "<label id=\"bodylabel" + idx + "\">请求体模板（使用 {sender} {message} {timestamp} 占位符）</label>";
+    channelsHtml += "<textarea name=\"push" + idx + "body\" id=\"body" + idx + "\" rows=\"4\" style=\"width:100%;font-family:monospace;\">" + htmlEscape(config.pushChannels[i].customBody) + "</textarea>";
     channelsHtml += "</div>";
     channelsHtml += "</div>";
     

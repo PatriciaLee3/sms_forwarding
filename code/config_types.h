@@ -15,7 +15,8 @@ enum PushType {
   PUSH_TYPE_CUSTOM = 7,    // 自定义模板
   PUSH_TYPE_FEISHU = 8,    // 飞书机器人
   PUSH_TYPE_GOTIFY = 9,    // Gotify
-  PUSH_TYPE_TELEGRAM = 10  // Telegram Bot
+  PUSH_TYPE_TELEGRAM = 10, // Telegram Bot
+  PUSH_TYPE_EMAIL = 11     // 邮件（SMTP）
 };
 
 // 最大推送通道数

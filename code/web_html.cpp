@@ -265,7 +265,7 @@ const char* htmlPage = R"rawliteral(
     <!-- ===== Email ===== -->
     <div class="panel" id="panel-email">
       <h1 class="page-title">邮件通知</h1>
-      <p class="page-subtitle">配置 SMTP 服务器以接收短信邮件通知</p>
+      <p class="page-subtitle">配置全局 SMTP 账号和默认收件人，邮件通道可留空使用此收件人</p>
       <form action="/save" method="POST" id="mainForm2">
       <div class="card">
         <div class="card-header">📧 SMTP 设置</div>
@@ -278,7 +278,7 @@ const char* htmlPage = R"rawliteral(
             <div class="form-group"><label class="form-label">邮箱账号</label><input class="form-input" type="text" name="smtpUser" value="%SMTP_USER%" placeholder="your@qq.com"></div>
             <div class="form-group"><label class="form-label">密码 / 授权码</label><input class="form-input" type="password" name="smtpPass" value="%SMTP_PASS%" placeholder="授权码"></div>
           </div>
-          <div class="form-group"><label class="form-label">接收邮件地址</label><input class="form-input" type="text" name="smtpSendTo" value="%SMTP_SEND_TO%" placeholder="receiver@example.com"></div>
+          <div class="form-group"><label class="form-label">全局收件人地址</label><input class="form-input" type="text" name="smtpSendTo" value="%SMTP_SEND_TO%" placeholder="receiver@example.com"></div>
         </div>
       </div>
       <button type="submit" class="btn btn-primary btn-block btn-save">保存配置</button>
@@ -288,7 +288,7 @@ const char* htmlPage = R"rawliteral(
     <!-- ===== Push Channels ===== -->
     <div class="panel" id="panel-push">
       <h1 class="page-title">推送通道</h1>
-      <p class="page-subtitle">最多 5 个独立推送通道，支持 POST JSON、Bark、钉钉、飞书、PushPlus、Server酱、Gotify、Telegram</p>
+      <p class="page-subtitle">最多 5 个独立推送通道，支持 POST JSON、Bark、钉钉、飞书、PushPlus、Server酱、Gotify、Telegram、邮件</p>
       <form action="/save" method="POST" id="mainForm3">
       <div class="card">
         <div class="card-header">🔗 通道配置</div>
@@ -466,12 +466,18 @@ const char* htmlPage = R"rawliteral(
       var hint = document.getElementById('hint' + idx);
       var extra = document.getElementById('extra' + idx);
       var custom = document.getElementById('custom' + idx);
+      var urlGroup = document.getElementById('urlgroup' + idx);
+      var bodyLabel = document.getElementById('bodylabel' + idx);
+      var body = document.getElementById('body' + idx);
       var type = parseInt(sel.value);
       extra.style.display = 'none'; custom.style.display = 'none';
+      if (urlGroup) urlGroup.style.display = 'block';
       document.getElementById('key1label' + idx).innerText = '参数 1';
       document.getElementById('key2label' + idx).innerText = '参数 2';
       document.getElementById('key1' + idx).placeholder = '';
       document.getElementById('key2' + idx).placeholder = '';
+      if (bodyLabel) bodyLabel.innerText = '请求体模板（使用 {sender} {message} {timestamp} 占位符）';
+      if (body) body.placeholder = '';
       var kg = document.getElementById('key2group' + idx);
       if (kg) kg.style.display = 'none';
       if (type == 1) hint.innerHTML = 'POST JSON<br>{"sender":"+8613800138000","message":"...","timestamp":"2026-01-01 12:00:00"}';
@@ -484,6 +490,7 @@ const char* htmlPage = R"rawliteral(
       else if (type == 8) { hint.innerHTML = '飞书机器人<br>填写 Webhook 地址，签名验证需填 Secret'; extra.style.display='block'; document.getElementById('key1label'+idx).innerText='Secret（签名密钥，可选）'; document.getElementById('key1'+idx).placeholder='飞书签名密钥'; }
       else if (type == 9) { hint.innerHTML = 'Gotify<br>填写服务器地址 + 应用 Token'; extra.style.display='block'; document.getElementById('key1label'+idx).innerText='Token（应用 Token）'; document.getElementById('key1'+idx).placeholder='A...'; }
       else if (type == 10) { hint.innerHTML = 'Telegram Bot<br>Chat ID（参数1）+ Bot Token（参数2）'; extra.style.display='block'; document.getElementById('key1label'+idx).innerText='Chat ID'; document.getElementById('key1'+idx).placeholder='123456789'; if(kg)kg.style.display='block'; document.getElementById('key2label'+idx).innerText='Bot Token'; document.getElementById('key2'+idx).placeholder='12345678:ABC...'; }
+      else if (type == 11) { hint.innerHTML = '邮件（SMTP）<br>SMTP 账号在“邮件通知”页配置，收件人留空则使用全局收件人'; if(urlGroup)urlGroup.style.display='none'; extra.style.display='block'; custom.style.display='block'; document.getElementById('key1label'+idx).innerText='收件人邮箱（留空使用全局收件人）'; document.getElementById('key1'+idx).placeholder='receiver@example.com'; if(kg)kg.style.display='block'; document.getElementById('key2label'+idx).innerText='邮件标题模板'; document.getElementById('key2'+idx).placeholder='短信{sender},{message}'; if(bodyLabel)bodyLabel.innerText='邮件正文模板（使用 {sender} {message} {timestamp} 占位符）'; if(body)body.placeholder='来自：{sender}，时间：{timestamp}，内容：{message}'; }
     }
     document.addEventListener('DOMContentLoaded', function() {
       for (var i = 0; i < 5; i++) { toggleChannel(i); updateTypeHint(i); }

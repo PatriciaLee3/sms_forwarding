@@ -84,12 +84,12 @@ checkSerial1URC();             // 5. 检查模组URC(短信上报)
 **依赖**: 仅 `<Arduino.h>`  
 **被依赖**: 所有其他模块
 
-### PushType 枚举 (0-10)
+### PushType 枚举 (0-11)
 
-表示推送目标平台。值 0 为"未启用"，1-10 对应 10 种推送方式。
+表示推送目标平台。值 0 为"未启用"，1-11 对应 11 种推送方式。
 
 **添加新推送类型**:
-1. 在 `PushType` 枚举末尾添加新值（如 `PUSH_TYPE_NEW = 11`）
+1. 在 `PushType` 枚举末尾添加新值（如 `PUSH_TYPE_NEW = 12`）
 2. 在 `isPushChannelValid()` 添加对应的必填字段校验
 3. 在 `sendToChannel()` 添加 `case PUSH_TYPE_NEW:` 实现
 4. 在 `handleRoot()` 的 HTML 生成中添加 option
@@ -270,8 +270,9 @@ sendSMSToServer(sender, message, timestamp)
                  │               └─ 有secret → HMAC-SHA256签名
                  ├─ GOTIFY     → POST {title, message, priority}
                  │               └─ URL: {url}/message?token={key1}
-                 └─ TELEGRAM   → POST {chat_id, text}
-                     └─ 默认URL: https://api.telegram.org/bot{key2}/sendMessage
+                 ├─ TELEGRAM   → POST {chat_id, text}
+                 │               └─ 默认URL: https://api.telegram.org/bot{key2}/sendMessage
+                 └─ EMAIL      → SMTP 邮件（key1覆盖收件人，key2/customBody为模板）
 ```
 
 ### HMAC 签名实现
@@ -302,6 +303,8 @@ msg.text.body(body);
 msg.timestamp = time(nullptr);
 smtp.send(msg);
 ```
+
+系统邮件通过 `sendEmailNotification()` 发送到全局 `smtpSendTo`。短信邮件作为 `PUSH_TYPE_EMAIL` 通道发送：`key1` 为空时使用全局收件人，非空时覆盖全局收件人；`key2` / `customBody` 分别作为标题和正文模板。
 
 ### 修改指南
 

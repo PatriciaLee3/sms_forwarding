@@ -66,8 +66,7 @@ findOrCreateConcatSlot()    │
            │                  ├── "SMS:号码:内容" → sendSMS()
            │                  └── "RESET" → resetModule() + ESP.restart()
            ├── sendSMSToServer()     [push.cpp]
-           │     └── sendToChannel() × N
-           └── sendEmailNotification()  [push.cpp]
+           │     └── sendToChannel() × N（含邮件通道）
 ```
 
 ### HTTP 请求流程

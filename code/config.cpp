@@ -73,6 +73,13 @@ void loadConfig() {
   logCaptureLn(String("配置已加载"));
 }
 
+bool isEmailAccountValid() {
+  return config.smtpServer.length() > 0 &&
+         config.smtpPort > 0 &&
+         config.smtpUser.length() > 0 &&
+         config.smtpPass.length() > 0;
+}
+
 // 检查推送通道是否有效配置
 bool isPushChannelValid(const PushChannel& ch) {
   if (!ch.enabled) return false;
@@ -92,18 +99,17 @@ bool isPushChannelValid(const PushChannel& ch) {
       return ch.url.length() > 0 && ch.key1.length() > 0;  // 需要URL和Token
     case PUSH_TYPE_TELEGRAM:
       return ch.key1.length() > 0 && ch.key2.length() > 0; // 需要Chat ID和Token
+    case PUSH_TYPE_EMAIL: {
+      String recipient = ch.key1.length() > 0 ? ch.key1 : config.smtpSendTo;
+      return isEmailAccountValid() && recipient.length() > 0;
+    }
     default:
       return false;
   }
 }
 
-// 检查配置是否有效（至少配置了邮件或任一推送通道）
+// 检查配置是否有效（至少配置了任一有效推送通道）
 bool isConfigValid() {
-  bool emailValid = config.smtpServer.length() > 0 && 
-                    config.smtpUser.length() > 0 && 
-                    config.smtpPass.length() > 0 && 
-                    config.smtpSendTo.length() > 0;
-  
   bool pushValid = false;
   for (int i = 0; i < MAX_PUSH_CHANNELS; i++) {
     if (isPushChannelValid(config.pushChannels[i])) {
@@ -112,7 +118,7 @@ bool isConfigValid() {
     }
   }
   
-  return emailValid || pushValid;
+  return pushValid;
 }
 
 // 获取当前设备URL

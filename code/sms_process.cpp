@@ -284,17 +284,13 @@ void processSmsContent(const char* sender, const char* text, const char* timesta
     // 检查是否为命令格式
     if (smsText.startsWith("SMS:") || smsText.equals("RESET")) {
       processAdminCommand(sender, text);
-      // 命令已处理，不再发送普通通知邮件
+      // 命令已处理，不再发送普通通知
       return;
     }
   }
 
-  // 发送通知http（推送到所有启用的通道）
+  // 发送通知（推送到所有启用的通道）
   sendSMSToServer(sender, text, timestamp);
-  // 发送通知邮件
-  String subject = ""; subject+="短信";subject+=sender;subject+=",";subject+=text;
-  String body = ""; body+="来自：";body+=sender;body+="，时间：";body+=timestamp;body+="，内容：";body+=text;
-  sendEmailNotification(subject.c_str(), body.c_str());
 }
 
 // 处理URC和PDU

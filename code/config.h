@@ -5,6 +5,7 @@
 
 void saveConfig();
 void loadConfig();
+bool isEmailAccountValid();
 bool isPushChannelValid(const PushChannel& ch);
 bool isConfigValid();
 String getDeviceUrl();
