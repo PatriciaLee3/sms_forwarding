@@ -9,6 +9,7 @@ void sendToChannel(const PushChannel& channel, const char* sender, const char* m
 String urlEncode(const String& str);
 String jsonEscape(const String& str);
 String dingtalkSign(const String& secret, int64_t timestamp);
+String feishuSign(const String& secret, int64_t timestamp);
 int64_t getUtcMillis();
 
 #endif

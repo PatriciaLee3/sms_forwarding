@@ -267,7 +267,7 @@ sendSMSToServer(sender, message, timestamp)
                  │               └─ 默认URL: https://sctapi.ftqq.com/{key1}.send
                  ├─ CUSTOM     → POST (使用 customBody 模板替换)
                  ├─ FEISHU     → POST {timestamp?, sign?, msg_type, content}
-                 │               └─ 有secret → HMAC-SHA256签名
+                 │               └─ 有secret → feishuSign() 签名
                  ├─ GOTIFY     → POST {title, message, priority}
                  │               └─ URL: {url}/message?token={key1}
                  ├─ TELEGRAM   → POST {chat_id, text}
@@ -309,7 +309,7 @@ smtp.send(msg);
 ### 修改指南
 
 - **添加新推送通道**: 在 `PushType` 加枚举 → `isPushChannelValid()` 加校验 → `sendToChannel()` 加 case → Web UI 加选项
-- **修改钉钉/飞书签名逻辑**: 编辑 `dingtalkSign()` 或 `sendToChannel()` 中 FEISHU case
+- **修改钉钉/飞书签名逻辑**: 编辑 `dingtalkSign()` 或 `feishuSign()`
 - **更换 SMTP 库**: 只需修改 `sendEmailNotification()` 函数
 
 ---

@@ -370,6 +370,14 @@ const char* htmlPage = R"rawliteral(
         </div>
       </div>
       <div class="card">
+        <div class="card-header">⏱ NTP 时间同步</div>
+        <div class="card-body">
+          <button class="btn btn-secondary" id="ntpBtn" onclick="syncNtp()">同步 NTP 时间</button>
+          <p class="form-hint">通过 WiFi 重新同步系统时间，用于推送签名和时间戳</p>
+          <div class="result-box" id="ntpResult"></div>
+        </div>
+      </div>
+      <div class="card">
         <div class="card-header">📡 WiFi 控制</div>
         <div class="card-body">
           <button class="btn btn-danger" onclick="wifiRestart()">重启 WiFi</button>
@@ -495,6 +503,22 @@ const char* htmlPage = R"rawliteral(
     document.addEventListener('DOMContentLoaded', function() {
       for (var i = 0; i < 5; i++) { toggleChannel(i); updateTypeHint(i); }
     });
+    function testPushChannel(idx) {
+      var btn = document.getElementById('testPushBtn' + idx);
+      if (!btn) return;
+      btn.disabled = true;
+      btn.textContent = '触发中...';
+      fetch('/testpush?idx=' + idx, { method: 'POST' }).then(function() {
+        btn.textContent = '已触发';
+      }).catch(function() {
+        btn.textContent = '触发失败';
+      }).then(function() {
+        setTimeout(function() {
+          btn.disabled = false;
+          btn.textContent = '测试连通性';
+        }, 1200);
+      });
+    }
 
     // ---- Send SMS ----
     function updateCount(el) { document.getElementById('charCount').textContent = el.value.length; }
@@ -520,6 +544,18 @@ const char* htmlPage = R"rawliteral(
         if(d.success){r.className='result-box result-success';r.innerHTML='Ping 成功 — '+d.message;}
         else{r.className='result-box result-error';r.innerHTML='Ping 失败 — '+d.message;}
       }).catch(function(e){b.disabled=false;b.textContent='Ping 8.8.8.8';r.className='result-box result-error';r.textContent='请求失败: '+e;});
+    }
+
+    // ---- NTP Time Sync ----
+    function syncNtp(){
+      var b=document.getElementById('ntpBtn'),r=document.getElementById('ntpResult');
+      b.disabled=true;b.textContent='同步中...';
+      r.className='result-box result-loading';r.textContent='正在同步 NTP 时间（最长 10 秒）...';
+      fetch('/ntp',{method:'POST'}).then(function(rr){return rr.json()}).then(function(d){
+        b.disabled=false;b.textContent='同步 NTP 时间';
+        if(d.success){r.className='result-box result-success';r.textContent='NTP 同步成功 - '+d.message;}
+        else{r.className='result-box result-error';r.textContent='NTP 同步失败 - '+d.message;}
+      }).catch(function(e){b.disabled=false;b.textContent='同步 NTP 时间';r.className='result-box result-error';r.textContent='请求失败: '+e;});
     }
 
     // ---- WiFi Control ----

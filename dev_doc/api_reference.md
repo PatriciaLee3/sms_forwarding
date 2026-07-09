@@ -193,7 +193,7 @@
 
 **签名相关**:
 - 钉钉: `HMAC-SHA256(timestamp+"\n"+secret)` → Base64 → URLEncode → 追加到 URL
-- 飞书: `HMAC-SHA256(timestamp+"\n"+secret)` → Base64 → 放入 JSON body
+- 飞书: `HMAC-SHA256(message="", key=timestamp+"\n"+secret)` → Base64 → 放入 JSON body
 
 **占位符**: 自定义模板（PUSH_TYPE_CUSTOM）和邮件模板（PUSH_TYPE_EMAIL）支持 `{sender}` `{message}` `{timestamp}` 占位符替换。
 
@@ -211,6 +211,11 @@ JSON 字符串转义：`"` → `\"`, `\` → `\\`, `\n` → `\\n`, `\r` → `\\r
 
 ### `String dingtalkSign(const String& secret, int64_t timestamp)`
 HMAC-SHA256(timestamp + "\n" + secret, secret) → Base64 → URLEncode
+
+---
+
+### `String feishuSign(const String& secret, int64_t timestamp)`
+HMAC-SHA256(message="", key=timestamp + "\n" + secret) → Base64
 
 ---
 

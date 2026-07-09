@@ -4,6 +4,7 @@
 #include "modem.h"
 #include "push.h"
 #include "wifi_config.h"
+#include <time.h>
 
 // ---- 日志环形缓冲区 ----
 String logBuffer[LOG_BUF_SIZE];
@@ -75,6 +76,40 @@ static String htmlEscape(const String& value) {
     else result += c;
   }
   return result;
+}
+
+bool syncNtpTime(unsigned long timeoutMs, String* resultMessage) {
+  logCaptureLn(String("正在同步NTP时间..."));
+
+  if (WiFi.status() != WL_CONNECTED) {
+    String message = "WiFi未连接，无法同步NTP时间";
+    logCaptureLn(String("NTP时间同步失败: " + message));
+    if (resultMessage) *resultMessage = message;
+    return false;
+  }
+
+  configTime(0, 0, "ntp.ntsc.ac.cn", "ntp.aliyun.com", "pool.ntp.org");
+
+  unsigned long start = millis();
+  while (time(nullptr) < 100000 && millis() - start < timeoutMs) {
+    delay(10);
+    server.handleClient();
+  }
+
+  time_t now = time(nullptr);
+  if (now >= 100000) {
+    timeSynced = true;
+    logCaptureLn(String("NTP时间同步成功"));
+    logCapture(String("当前UTC时间戳: "));
+    logCaptureLn(String(now));
+    if (resultMessage) *resultMessage = "当前UTC时间戳: " + String(now);
+    return true;
+  }
+
+  String message = "NTP时间同步失败，将继续使用设备时间";
+  logCaptureLn(message);
+  if (resultMessage) *resultMessage = message;
+  return false;
 }
 
 // 检查HTTP Basic认证
@@ -196,6 +231,10 @@ void handleRoot() {
     channelsHtml += "<label id=\"bodylabel" + idx + "\">请求体模板（使用 {sender} {message} {timestamp} 占位符）</label>";
     channelsHtml += "<textarea name=\"push" + idx + "body\" id=\"body" + idx + "\" rows=\"4\" style=\"width:100%;font-family:monospace;\">" + htmlEscape(config.pushChannels[i].customBody) + "</textarea>";
     channelsHtml += "</div>";
+    channelsHtml += "</div>";
+
+    channelsHtml += "<div class=\"btn-row\">";
+    channelsHtml += "<button type=\"button\" class=\"btn btn-secondary btn-sm\" id=\"testPushBtn" + idx + "\" onclick=\"testPushChannel(" + idx + ")\">测试连通性</button>";
     channelsHtml += "</div>";
     
     channelsHtml += "</div></div>";
@@ -696,6 +735,45 @@ void handleSendSms() {
   server.send(200, "text/html", html);
 }
 
+// 处理单个推送通道连通性测试请求
+void handleTestPush() {
+  if (!checkAuth()) return;
+
+  String idxArg = server.arg("idx");
+  if (idxArg.length() != 1 || idxArg[0] < '0' || idxArg[0] > '9') {
+    logCaptureLn(String("推送通道测试失败: 通道索引无效 ") + idxArg);
+    server.send(204, "text/plain", "");
+    return;
+  }
+  int idx = idxArg.toInt();
+  if (idx < 0 || idx >= MAX_PUSH_CHANNELS) {
+    logCaptureLn(String("推送通道测试失败: 通道索引无效 ") + idxArg);
+    server.send(204, "text/plain", "");
+    return;
+  }
+
+  if (WiFi.status() != WL_CONNECTED) {
+    logCaptureLn(String("推送通道测试失败: WiFi未连接"));
+    server.send(204, "text/plain", "");
+    return;
+  }
+
+  PushChannel testChannel = config.pushChannels[idx];
+  String channelName = testChannel.name.length() > 0 ? testChannel.name : ("通道" + String(idx + 1));
+  if (!isPushChannelValid(testChannel)) {
+    logCaptureLn(String("[") + channelName + "] 测试失败: 通道未启用或配置无效");
+    server.send(204, "text/plain", "");
+    return;
+  }
+
+  testChannel.filterRegex = "";
+  testChannel.filterInvert = false;
+
+  logCaptureLn(String("[") + channelName + "] 网页端触发推送通道连通性测试");
+  sendToChannel(testChannel, "连通性测试", "短信转发器连通性测试", "2026-01-01 12:00:00");
+  server.send(204, "text/plain", "");
+}
+
 // 处理Ping请求
 void handlePing() {
   if (!checkAuth()) return;
@@ -871,6 +949,29 @@ void handlePing() {
   }
   json += "}";
   
+  server.send(200, "application/json", json);
+}
+
+void handleNtpSync() {
+  if (!checkAuth()) return;
+
+  static bool busy = false;
+  if (busy) {
+    server.send(429, "application/json", "{\"success\":false,\"message\":\"NTP同步正忙，请稍后重试\"}");
+    return;
+  }
+  busy = true;
+
+  logCaptureLn(String("网页端请求手动NTP时间同步"));
+  String message;
+  bool success = syncNtpTime(10000, &message);
+
+  String json = "{";
+  json += "\"success\":" + String(success ? "true" : "false") + ",";
+  json += "\"message\":\"" + jsonEscape(message) + "\"";
+  json += "}";
+
+  busy = false;
   server.send(200, "application/json", json);
 }
 

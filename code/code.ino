@@ -60,7 +60,9 @@ void setup() {
   server.on("/tools", handleRoot);
   server.on("/sms", handleRoot);
   server.on("/sendsms", HTTP_POST, handleSendSms);
+  server.on("/testpush", HTTP_POST, handleTestPush);
   server.on("/ping", HTTP_POST, handlePing);
+  server.on("/ntp", HTTP_POST, handleNtpSync);
   server.on("/query", handleQuery);
   server.on("/flight", handleFlightMode);
   server.on("/at", handleATCommand);
@@ -71,23 +73,7 @@ void setup() {
   logCaptureLn(String("HTTP服务器已启动"));
 
   // ---- NTP 时间同步 ----
-  logCaptureLn(String("正在同步NTP时间..."));
-  configTime(0, 0, "ntp.ntsc.ac.cn", "ntp.aliyun.com", "pool.ntp.org");
-  int ntpRetry = 0;
-  while (time(nullptr) < 100000 && ntpRetry < 100) {
-    delay(1);
-    server.handleClient();
-    ntpRetry++;
-  }
-  if (time(nullptr) >= 100000) {
-    timeSynced = true;
-    logCaptureLn(String("NTP时间同步成功"));
-    time_t now = time(nullptr);
-    logCapture(String("当前UTC时间戳: "));
-    logCaptureLn(String(now));
-  } else {
-    logCaptureLn(String("NTP时间同步失败，将使用设备时间"));
-  }
+  syncNtpTime(100);
 
   ssl_client.setInsecure();
   digitalWrite(LED_BUILTIN, LOW);

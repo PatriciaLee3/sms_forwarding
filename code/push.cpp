@@ -85,6 +85,21 @@ String dingtalkSign(const String& secret, int64_t timestamp) {
   return urlEncode(base64Encoded);
 }
 
+String feishuSign(const String& secret, int64_t timestamp) {
+  String stringToSign = String(timestamp) + "\n" + secret;
+
+  uint8_t hmacResult[32];
+  mbedtls_md_context_t ctx;
+  mbedtls_md_init(&ctx);
+  mbedtls_md_setup(&ctx, mbedtls_md_info_from_type(MBEDTLS_MD_SHA256), 1);
+  // Feishu's official sample uses stringToSign as the HMAC key and an empty message.
+  mbedtls_md_hmac_starts(&ctx, (const unsigned char*)stringToSign.c_str(), stringToSign.length());
+  mbedtls_md_hmac_finish(&ctx, hmacResult);
+  mbedtls_md_free(&ctx);
+
+  return base64::encode(hmacResult, 32);
+}
+
 // 获取当前UTC毫秒级时间戳（用于钉钉签名）
 int64_t getUtcMillis() {
   struct timeval tv;
@@ -306,17 +321,7 @@ void sendToChannel(const PushChannel& channel, const char* sender, const char* m
       if (channel.key1.length() > 0) {
         // 飞书使用秒级时间戳
         int64_t ts = time(nullptr);
-        // 飞书签名: base64(hmac-sha256(timestamp + "\n" + secret, secret))
-        String stringToSign = String(ts) + "\n" + channel.key1;
-        uint8_t hmacResult[32];
-        mbedtls_md_context_t ctx;
-        mbedtls_md_init(&ctx);
-        mbedtls_md_setup(&ctx, mbedtls_md_info_from_type(MBEDTLS_MD_SHA256), 1);
-        mbedtls_md_hmac_starts(&ctx, (const unsigned char*)channel.key1.c_str(), channel.key1.length());
-        mbedtls_md_hmac_update(&ctx, (const unsigned char*)stringToSign.c_str(), stringToSign.length());
-        mbedtls_md_hmac_finish(&ctx, hmacResult);
-        mbedtls_md_free(&ctx);
-        String sign = base64::encode(hmacResult, 32);
+        String sign = feishuSign(channel.key1, ts);
         
         jsonData += "\"timestamp\":\"" + String(ts) + "\",";
         jsonData += "\"sign\":\"" + sign + "\",";
